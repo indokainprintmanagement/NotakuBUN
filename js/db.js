@@ -1,18 +1,11 @@
 // ============================================================
-//   db.js — Local & Supabase Hybrid Storage (Auto-Sync)
+//   db.js — Local & Supabase Hybrid Storage (Strict Server-Sync)
 // ============================================================
 
 const DB = {
-  // --- SETTINGS (FIXED: Smart Sync PC & Mobile) ---
+  // --- SETTINGS (Strict Supabase First -> Sync to Local) ---
   async getSetting(key, defaultValue = '') {
-    const localVal = localStorage.getItem('set_' + key);
-
-    // 1. Jika di LocalStorage ada isinya (dan bukan string kosong), pakai lokal
-    if (localVal !== null && localVal !== undefined && localVal.trim() !== '') {
-      return localVal;
-    }
-
-    // 2. Jika di LocalStorage kosong, tarik data dari Supabase (Sync antar HP & PC)
+    // 1. Coba tarik data utama langsung dari Supabase
     try {
       if (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function') {
         const { data, error } = await supabase
@@ -21,13 +14,20 @@ const DB = {
           .eq('key', key)
           .maybeSingle();
 
-        if (!error && data && data.value !== undefined && data.value !== null && String(data.value).trim() !== '') {
-          localStorage.setItem('set_' + key, String(data.value));
-          return String(data.value);
+        if (!error && data && data.value !== null && data.value !== undefined) {
+          const valStr = String(data.value);
+          localStorage.setItem('set_' + key, valStr);
+          return valStr;
         }
       }
     } catch (err) {
-      console.warn('Gagal sync setting Supabase:', err);
+      console.warn('Gagal fetch setting Supabase, fallback ke LocalStorage:', err);
+    }
+
+    // 2. Fallback ke LocalStorage jika offline / gagal koneksi
+    const localVal = localStorage.getItem('set_' + key);
+    if (localVal !== null && localVal !== undefined && localVal !== '') {
+      return localVal;
     }
 
     return defaultValue;
@@ -36,17 +36,23 @@ const DB = {
   async setSetting(key, value) {
     const valStr = String(value ?? '').trim();
 
-    // 1. Simpan ke LocalStorage HP/PC
+    // 1. Simpan ke LocalStorage lokal
     localStorage.setItem('set_' + key, valStr);
 
-    // 2. Wajib push ke Supabase supaya HP & PC datanya sama
+    // 2. Paksa simpan ke Supabase (Upsert / Insert On Conflict)
     if (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function') {
       try {
-        await supabase
+        const { error } = await supabase
           .from('settings')
           .upsert({ key: key, value: valStr }, { onConflict: 'key' });
+
+        if (error) {
+          console.error(`Gagal simpan setting '${key}' ke Supabase:`, error.message);
+          // Jika upsert gagal, coba mekanisme update
+          await supabase.from('settings').update({ value: valStr }).eq('key', key);
+        }
       } catch (err) {
-        console.warn('Supabase upsert setting warning:', err);
+        console.error('Error saat push setting ke Supabase:', err);
       }
     }
 
