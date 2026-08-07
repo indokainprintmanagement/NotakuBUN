@@ -1,11 +1,9 @@
 // ============================================================
-//   db.js — Local & Supabase Hybrid Storage (Strict Server-Sync)
+//   db.js — Public Sync (No Private Lock)
 // ============================================================
 
 const DB = {
-  // --- SETTINGS ---
   async getSetting(key, defaultValue = '') {
-    // 1. Prioritas Utama: Ambil dari Supabase (agar HP & PC selalu sama)
     try {
       if (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function') {
         const { data, error } = await supabase
@@ -15,58 +13,39 @@ const DB = {
           .maybeSingle();
 
         if (!error && data && data.value !== null && data.value !== undefined && String(data.value).trim() !== '') {
-          const valStr = String(data.value);
-          localStorage.setItem('set_' + key, valStr);
-          return valStr;
+          const val = String(data.value);
+          localStorage.setItem('set_' + key, val);
+          return val;
         }
       }
-    } catch (err) {
-      console.warn('Gagal fetch setting Supabase:', err);
+    } catch (e) {
+      console.warn('Supabase fetch bypassed:', e);
     }
 
-    // 2. Cache Lokal (Fallback)
     const localVal = localStorage.getItem('set_' + key);
-    if (localVal !== null && localVal !== undefined && localVal.trim() !== '') {
-      return localVal;
-    }
-
-    return defaultValue;
+    return (localVal !== null && localVal !== undefined && localVal.trim() !== '') ? localVal : defaultValue;
   },
 
   async setSetting(key, value) {
     const valStr = String(value ?? '').trim();
-
-    // Simpan ke LocalStorage lokal
     localStorage.setItem('set_' + key, valStr);
 
-    // Kirim ke Supabase
     if (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function') {
       try {
-        // Coba Upsert
         const { error } = await supabase
           .from('settings')
           .upsert({ key: key, value: valStr }, { onConflict: 'key' });
 
         if (error) {
-          console.error(`Upsert gagal (${key}), mencoba manual Insert/Update...`, error.message);
-          
-          // Fallback manual jika upsert ditolak
-          const { data } = await supabase.from('settings').select('key').eq('key', key).maybeSingle();
-          if (data) {
-            await supabase.from('settings').update({ value: valStr }).eq('key', key);
-          } else {
-            await supabase.from('settings').insert({ key: key, value: valStr });
-          }
+          await supabase.from('settings').insert({ key: key, value: valStr });
         }
-      } catch (err) {
-        console.error('Error push setting ke Supabase:', err);
+      } catch (e) {
+        console.warn('Supabase save bypassed:', e);
       }
     }
-
     return true;
   },
 
-  // --- HELPER GENERIC STORAGE ---
   async dbGetAll(storeName) {
     try {
       if (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function') {
@@ -77,7 +56,7 @@ const DB = {
         }
       }
     } catch (e) {
-      console.warn(`Gagal fetch ${storeName} Supabase:`, e);
+      console.warn(`Fetch ${storeName} error:`, e);
     }
 
     const localData = localStorage.getItem('db_' + storeName);
@@ -98,7 +77,7 @@ const DB = {
       try {
         await supabase.from(storeName).upsert(item);
       } catch (e) {
-        console.warn(`Gagal push ${storeName} Supabase:`, e);
+        console.warn(`Put ${storeName} error:`, e);
       }
     }
     return item;
@@ -113,7 +92,7 @@ const DB = {
       try {
         await supabase.from(storeName).delete().eq('id', id);
       } catch (e) {
-        console.warn(`Gagal delete ${storeName} Supabase:`, e);
+        console.warn(`Delete ${storeName} error:`, e);
       }
     }
     return true;
