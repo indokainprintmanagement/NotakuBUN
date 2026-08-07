@@ -427,16 +427,15 @@ async function saveInvoice(andPrint = null) {
       return;
     }
 
-    // Auto-create customer record in IndexedDB!
-    const generatedCustId = Date.now() + Math.random();
+    // Auto-create customer record in Supabase!
     const newCustRecord = {
-      id: generatedCustId,
       name: manualName,
       phone: manualPhone,
       address: manualAddress,
       notes: 'Terdaftar otomatis saat pembuatan Nota'
     };
-    await DB.dbPut('customers', newCustRecord);
+    const savedCust = await DB.dbPut('customers', newCustRecord);
+    const generatedCustId = (savedCust && typeof savedCust === 'object' && savedCust.id) ? savedCust.id : savedCust;
     
     // Refresh customers list if available
     if (typeof renderCustomersTable === 'function') {

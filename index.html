@@ -7,6 +7,7 @@
   <meta name="description" content="Aplikasi nota dan invoice offline untuk usaha lokal. Kelola transaksi, piutang, dan produk dengan mudah.">
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -635,7 +636,7 @@
           </div>
           <div class="card-body" style="font-size:12px;color:var(--text-secondary);line-height:2">
             <div><strong>Aplikasi:</strong> NotaKu v1.0</div>
-            <div><strong>Mode:</strong> Offline (IndexedDB)</div>
+            <div><strong>Mode:</strong> Cloud Database (Supabase)</div>
             <div><strong>Browser:</strong> <span id="info-browser"></span></div>
             <div style="margin-top:8px;padding:10px;background:var(--bg-glass);border-radius:var(--radius-sm);font-size:11px">
               💡 <strong>Tips:</strong> Tekan <kbd style="background:var(--bg-glass);padding:2px 5px;border-radius:4px;border:1px solid var(--border)">N</kbd> di keyboard untuk membuat nota baru dengan cepat

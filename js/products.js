@@ -146,12 +146,13 @@ async function saveProduct() {
     }
   }
 
-  const savedId = await DB.dbPut('products', payload);
+  const savedRes = await DB.dbPut('products', payload);
+  const targetId = (savedRes && typeof savedRes === 'object' && savedRes.id) ? savedRes.id : (savedRes || editingProductId);
 
   // Jika produk baru bertipe barang dan memiliki stok awal, catat mutasi masuk!
   if (isNew && startStock > 0 && type !== 'jasa') {
     await DB.dbPut('stock_movements', {
-      product_id: savedId,
+      product_id: targetId,
       date: Utils.todayStr(),
       time: Utils.timeStr(),
       type: 'in',

@@ -67,14 +67,14 @@ async function exportAllData() {
 }
 
 async function clearAllData() {
-  Utils.confirm('Reset Semua Data', 'PERHATIAN: Semua data nota, pelanggan, dan produk akan dihapus permanen!', async () => {
-    const stores = ['invoices','customers','products'];
+  Utils.confirm('Reset Semua Data', 'PERHATIAN: Semua data nota, pelanggan, produk, pengeluaran, dan mutasi stok akan dihapus permanen!', async () => {
+    const stores = ['invoices','customers','products','expenses','stock_movements'];
     for (const s of stores) {
       const all = await DB.dbGetAll(s);
       for (const item of all) await DB.dbDelete(s, item.id);
     }
     Utils.toast('Semua data telah dihapus', 'warning');
-    navigateTo('dashboard');
+    if (typeof navigateTo === 'function') navigateTo('dashboard');
   }, true);
 }
 
@@ -99,35 +99,29 @@ async function generateSampleData() {
   for (const p of prods) await DB.dbPut('products', p);
 
   Utils.toast('Data contoh berhasil ditambahkan!', 'success');
-  await updateDebtBadge();
+  if (typeof updateDebtBadge === 'function') await updateDebtBadge();
 }
 
 async function resetWebTotal() {
   Utils.confirm('Reset Total Aplikasi', 'PERHATIAN: Tindakan ini akan menghapus semua produk, nota, piutang, mutasi stok, dan pengaturan toko secara permanen! Aplikasi akan dimuat ulang ke kondisi awal.', async () => {
-    if (window.DB && typeof window.DB.closeDB === 'function') {
-      window.DB.closeDB();
-    }
-    
-    const req = indexedDB.deleteDatabase('InvoiceAppDB');
-    req.onsuccess = () => {
+    try {
+      const stores = ['invoices','customers','products','expenses','stock_movements'];
+      for (const s of stores) {
+        const all = await DB.dbGetAll(s);
+        for (const item of all) await DB.dbDelete(s, item.id);
+      }
+      const settings = await DB.dbGetAll('settings');
+      for (const st of settings) await DB.dbDelete('settings', st.key);
       localStorage.clear();
       sessionStorage.clear();
       Utils.toast('Aplikasi berhasil direset total! Memuat ulang...', 'success');
       setTimeout(() => {
         window.location.reload();
       }, 1200);
-    };
-    req.onerror = () => {
-      Utils.toast('Gagal menghapus database. Silakan muat ulang halaman.', 'danger');
-    };
-    req.onblocked = () => {
-      localStorage.clear();
-      sessionStorage.clear();
-      Utils.toast('Membersihkan penyimpanan lokal... Memuat ulang.', 'warning');
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-    };
+    } catch (err) {
+      console.error('Reset error:', err);
+      Utils.toast('Gagal mereset database. Silakan periksa koneksi Supabase.', 'danger');
+    }
   }, true);
 }
 

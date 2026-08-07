@@ -68,20 +68,19 @@ async function renderExpensesTable() {
   document.getElementById('exp-total-month').textContent = Utils.fmt(totalMonth);
 }
 
-function openExpenseForm(id = null) {
+async function openExpenseForm(id = null) {
   document.getElementById('exp-id').value = id || '';
   document.getElementById('exp-modal-title').textContent = id ? '✏️ Edit Pengeluaran' : '💸 Tambah Pengeluaran';
   
   if (id) {
     // Editing existing expense
-    DB.dbGet('expenses', id).then(e => {
-      if (!e) return;
-      document.getElementById('exp-category').value = e.category || '';
-      document.getElementById('exp-amount').value = Utils.fmtNum(e.amount || 0);
-      document.getElementById('exp-date').value = e.date || Utils.todayStr();
-      document.getElementById('exp-notes').value = e.notes || '';
-      Utils.openModal('expense-modal');
-    });
+    const e = await DB.dbGet('expenses', id);
+    if (!e) return;
+    document.getElementById('exp-category').value = e.category || '';
+    document.getElementById('exp-amount').value = Utils.fmtNum(e.amount || 0);
+    document.getElementById('exp-date').value = e.date || Utils.todayStr();
+    document.getElementById('exp-notes').value = e.notes || '';
+    Utils.openModal('expense-modal');
   } else {
     // New expense entry
     document.getElementById('exp-category').value = '';

@@ -1,93 +1,124 @@
 // ============================================================
-//  db.js — IndexedDB Wrapper
+//  db.js — Supabase Client SDK Integration
 // ============================================================
 
-const DB_NAME    = 'InvoiceAppDB';
-const DB_VERSION = 3;
+const SUPABASE_URL = 'PASTE_SUPABASE_URL_KAMU_DI_SINI';
+const SUPABASE_KEY = 'PASTE_SUPABASE_ANON_KEY_KAMU_DI_SINI';
 
-let _db = null;
+// Inisialisasi Supabase Client
+const db = (typeof supabase !== 'undefined' && supabase.createClient)
+  ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;
 
-const STORES = {
-  invoices:  { keyPath: 'id', indexes: [['no_nota','no_nota',{unique:true}],['date','date',{}],['status','status',{}],['customer_id','customer_id',{}]] },
-  customers: { keyPath: 'id', indexes: [['name','name',{}]] },
-  products:  { keyPath: 'id', indexes: [['name','name',{}]] },
-  settings:  { keyPath: 'key' },
-  stock_movements: { keyPath: 'id', indexes: [['product_id', 'product_id', {}], ['date', 'date', {}], ['type', 'type', {}]] },
-  expenses:  { keyPath: 'id', indexes: [['date', 'date', {}]] },
-};
+// Expose client ke window agar bisa diakses langsung jika diperlukan
+window.db = db;
 
-function openDB() {
-  return new Promise((resolve, reject) => {
-    if (_db) return resolve(_db);
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      for (const [storeName, config] of Object.entries(STORES)) {
-        if (!db.objectStoreNames.contains(storeName)) {
-          const store = db.createObjectStore(storeName, { keyPath: config.keyPath, autoIncrement: true });
-          (config.indexes || []).forEach(([name, keyPath, opts]) => store.createIndex(name, keyPath, opts));
-        }
-      }
-    };
-    req.onsuccess = e => { _db = e.target.result; resolve(_db); };
-    req.onerror   = e => reject(e.target.error);
-  });
+// Dummy / No-op function for openDB to maintain backwards compatibility
+async function openDB() {
+  return db;
 }
 
-async function getStore(storeName, mode = 'readonly') {
-  const db = await openDB();
-  return db.transaction(storeName, mode).objectStore(storeName);
-}
+// ---- Generic CRUD Supabase ----
 
-function promisify(req) {
-  return new Promise((resolve, reject) => {
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror   = e => reject(e.target.error);
-  });
-}
-
-// ---- Generic CRUD ----
+// GET ALL: await db.from('nama_tabel').select('*')
 async function dbGetAll(storeName) {
-  const store = await getStore(storeName);
-  return promisify(store.getAll());
+  if (!db) {
+    console.error('Supabase Client belum dikonfigurasi. Harap isi SUPABASE_URL & SUPABASE_KEY di js/db.js.');
+    return [];
+  }
+  const { data, error } = await db.from(storeName).select('*');
+  if (error) {
+    console.error(`Supabase error [getAll ${storeName}]:`, error);
+    return [];
+  }
+  return data || [];
 }
 
+// GET BY ID: await db.from('nama_tabel').select('*').eq('id', id).single()
 async function dbGet(storeName, id) {
-  const store = await getStore(storeName);
-  return promisify(store.get(id));
+  if (!db) return null;
+  const keyField = storeName === 'settings' ? 'key' : 'id';
+  const { data, error } = await db.from(storeName).select('*').eq(keyField, id).maybeSingle();
+  if (error) {
+    console.error(`Supabase error [get ${storeName} ${id}]:`, error);
+    return null;
+  }
+  return data;
 }
 
+// PUT / INSERT / UPDATE: await db.from('nama_tabel').insert(...) / .update(...) / .upsert(...)
 async function dbPut(storeName, record) {
-  const store = await getStore(storeName, 'readwrite');
-  if (!record.id) record.id = Date.now() + Math.random();
-  record.updated_at = new Date().toISOString();
-  if (!record.created_at) record.created_at = record.updated_at;
-  return promisify(store.put(record));
+  if (!db) return record;
+  const payload = { ...record };
+  payload.updated_at = new Date().toISOString();
+  if (!payload.created_at) payload.created_at = payload.updated_at;
+
+  if (storeName === 'settings') {
+    const { data, error } = await db.from('settings').upsert({ key: payload.key, value: payload.value, updated_at: payload.updated_at }).select();
+    if (error) {
+      console.error(`Supabase error [put settings]:`, error);
+      throw error;
+    }
+    return data ? data[0] : payload;
+  }
+
+  // Check if updating existing record or inserting new record
+  if (payload.id) {
+    const { data, error } = await db.from(storeName).upsert(payload).select();
+    if (error) {
+      console.error(`Supabase error [upsert ${storeName}]:`, error);
+      throw error;
+    }
+    return data && data.length > 0 ? data[0] : payload;
+  } else {
+    delete payload.id; // Let Supabase auto-generate ID
+    const { data, error } = await db.from(storeName).insert(payload).select();
+    if (error) {
+      console.error(`Supabase error [insert ${storeName}]:`, error);
+      throw error;
+    }
+    return data && data.length > 0 ? data[0] : payload;
+  }
 }
 
+// DELETE: await db.from('nama_tabel').delete().eq('id', id)
 async function dbDelete(storeName, id) {
-  const store = await getStore(storeName, 'readwrite');
-  return promisify(store.delete(id));
+  if (!db) return;
+  const keyField = storeName === 'settings' ? 'key' : 'id';
+  const { data, error } = await db.from(storeName).delete().eq(keyField, id);
+  if (error) {
+    console.error(`Supabase error [delete ${storeName} ${id}]:`, error);
+    throw error;
+  }
+  return data;
 }
 
+// GET BY INDEX / EQUAL FILTER
 async function dbGetByIndex(storeName, indexName, value) {
-  const store = await getStore(storeName);
-  const index = store.index(indexName);
-  return promisify(index.getAll(value));
+  if (!db) return [];
+  const { data, error } = await db.from(storeName).select('*').eq(indexName, value);
+  if (error) {
+    console.error(`Supabase error [getByIndex ${storeName} ${indexName}=${value}]:`, error);
+    return [];
+  }
+  return data || [];
 }
 
 // ---- Settings helpers ----
 async function getSetting(key, defaultVal = null) {
-  const db    = await openDB();
-  const store = db.transaction('settings', 'readonly').objectStore('settings');
-  const val   = await promisify(store.get(key));
-  return val ? val.value : defaultVal;
+  if (!db) return defaultVal;
+  const { data, error } = await db.from('settings').select('value').eq('key', key).maybeSingle();
+  if (error || !data) return defaultVal;
+  return data.value;
 }
 
 async function setSetting(key, value) {
-  const db    = await openDB();
-  const store = db.transaction('settings', 'readwrite').objectStore('settings');
-  return promisify(store.put({ key, value }));
+  if (!db) return;
+  const { data, error } = await db.from('settings').upsert({ key, value, updated_at: new Date().toISOString() }).select();
+  if (error) {
+    console.error(`Supabase error [setSetting ${key}]:`, error);
+  }
+  return data;
 }
 
 // ---- Invoice: auto-generate next no_nota ----
@@ -135,10 +166,7 @@ async function updateProductStock(productId, changeQty) {
 }
 
 function closeDB() {
-  if (_db) {
-    _db.close();
-    _db = null;
-  }
+  // No-op for Supabase
 }
 
 window.DB = {
