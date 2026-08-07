@@ -1,29 +1,29 @@
 // ============================================================
-//   settings.js — Store Settings
+//   settings.js — Store Settings (Fixed & Bulletproof)
 // ============================================================
+
+function getInputValue(id, fallback = '') {
+  const el = document.getElementById(id);
+  return el && el.value ? el.value.trim() : fallback;
+}
+
+function setInputValue(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.value = (val !== null && val !== undefined) ? val : '';
+}
 
 async function initSettings() {
   try {
-    const setStoreName = document.getElementById('set-store-name');
-    if (setStoreName) setStoreName.value = await DB.getSetting('store_name', 'Toko Saya');
+    if (typeof DB === 'undefined' || typeof DB.getSetting !== 'function') return;
 
-    const setStoreAddr = document.getElementById('set-store-address');
-    if (setStoreAddr) setStoreAddr.value = await DB.getSetting('store_address', '');
+    setInputValue('set-store-name',    await DB.getSetting('store_name', 'Toko Saya'));
+    setInputValue('set-store-address', await DB.getSetting('store_address', ''));
+    setInputValue('set-store-phone',   await DB.getSetting('store_phone', ''));
+    setInputValue('set-store-tagline', await DB.getSetting('store_tagline', ''));
 
-    const setStorePhone = document.getElementById('set-store-phone');
-    if (setStorePhone) setStorePhone.value = await DB.getSetting('store_phone', '');
-
-    const setStoreTagline = document.getElementById('set-store-tagline');
-    if (setStoreTagline) setStoreTagline.value = await DB.getSetting('store_tagline', '');
-
-    const setPrefix = document.getElementById('set-nota-prefix');
-    if (setPrefix) setPrefix.value = await DB.getSetting('nota_prefix', 'INV');
-
-    const setNotesStruk = document.getElementById('set-default-notes-struk');
-    if (setNotesStruk) setNotesStruk.value = await DB.getSetting('default_notes_struk', '');
-
-    const setNotesInv = document.getElementById('set-default-notes-invoice');
-    if (setNotesInv) setNotesInv.value = await DB.getSetting('default_notes_invoice', '');
+    setInputValue('set-nota-prefix',          await DB.getSetting('nota_prefix', 'INV'));
+    setInputValue('set-default-notes-struk',   await DB.getSetting('default_notes_struk', ''));
+    setInputValue('set-default-notes-invoice', await DB.getSetting('default_notes_invoice', ''));
 
     await updateSidebarStoreName();
   } catch (err) {
@@ -33,18 +33,18 @@ async function initSettings() {
 
 async function saveSettings() {
   try {
-    const getValue = (id, fallback = '') => {
-      const el = document.getElementById(id);
-      return el ? el.value.trim() : fallback;
-    };
+    if (typeof DB === 'undefined' || typeof DB.setSetting !== 'function') {
+      console.error('DB.setSetting tidak tersedia!');
+      return;
+    }
 
-    await DB.setSetting('store_name', getValue('set-store-name', 'Toko Saya'));
-    await DB.setSetting('store_address', getValue('set-store-address'));
-    await DB.setSetting('store_phone', getValue('set-store-phone'));
-    await DB.setSetting('store_tagline', getValue('set-store-tagline'));
-    await DB.setSetting('nota_prefix', getValue('set-nota-prefix', 'INV') || 'INV');
-    await DB.setSetting('default_notes_struk', getValue('set-default-notes-struk'));
-    await DB.setSetting('default_notes_invoice', getValue('set-default-notes-invoice'));
+    await DB.setSetting('store_name',            getInputValue('set-store-name', 'Toko Saya'));
+    await DB.setSetting('store_address',         getInputValue('set-store-address'));
+    await DB.setSetting('store_phone',           getInputValue('set-store-phone'));
+    await DB.setSetting('store_tagline',         getInputValue('set-store-tagline'));
+    await DB.setSetting('nota_prefix',           getInputValue('set-nota-prefix', 'INV') || 'INV');
+    await DB.setSetting('default_notes_struk',   getInputValue('set-default-notes-struk'));
+    await DB.setSetting('default_notes_invoice', getInputValue('set-default-notes-invoice'));
 
     if (window.Utils && typeof window.Utils.toast === 'function') {
       Utils.toast('Pengaturan berhasil disimpan ✓', 'success');
@@ -60,6 +60,7 @@ async function saveSettings() {
 
 async function updateSidebarStoreName() {
   try {
+    if (typeof DB === 'undefined' || typeof DB.getSetting !== 'function') return;
     const name = await DB.getSetting('store_name', 'Toko Saya');
     const el = document.getElementById('sidebar-store-name');
     if (el) el.textContent = name;
@@ -108,8 +109,10 @@ async function clearAllData() {
     try {
       const stores = ['invoices','customers','products','expenses','stock_movements'];
       for (const s of stores) {
-        const all = await DB.dbGetAll(s);
-        for (const item of all) await DB.dbDelete(s, item.id);
+        if (typeof DB.dbGetAll === 'function' && typeof DB.dbDelete === 'function') {
+          const all = await DB.dbGetAll(s);
+          for (const item of all) await DB.dbDelete(s, item.id);
+        }
       }
       Utils.toast('Semua data telah dihapus', 'warning');
       if (typeof navigateTo === 'function') navigateTo('dashboard');
@@ -123,14 +126,16 @@ async function generateSampleData() {
   try {
     const c1 = { name:'Budi Santoso', phone:'081234567890', address:'Jl. Merdeka No.10' };
     const c2 = { name:'Siti Rahayu', phone:'082345678901', address:'Jl. Sudirman No.5' };
-    await DB.dbPut('customers', c1);
-    await DB.dbPut('customers', c2);
+    if (typeof DB.dbPut === 'function') {
+      await DB.dbPut('customers', c1);
+      await DB.dbPut('customers', c2);
 
-    const prods = [
-      { name:'Kemeja Polos', category:'Pakaian', price:85000 },
-      { name:'Kaos Oblong', category:'Pakaian', price:55000 }
-    ];
-    for (const p of prods) await DB.dbPut('products', p);
+      const prods = [
+        { name:'Kemeja Polos', category:'Pakaian', price:85000 },
+        { name:'Kaos Oblong', category:'Pakaian', price:55000 }
+      ];
+      for (const p of prods) await DB.dbPut('products', p);
+    }
 
     if (window.Utils && typeof window.Utils.toast === 'function') {
       Utils.toast('Data contoh berhasil ditambahkan!', 'success');
@@ -154,6 +159,7 @@ async function resetWebTotal() {
   }, true);
 }
 
+// Attach to Global Scope
 window.initSettings = initSettings;
 window.saveSettings = saveSettings;
 window.saveProfileSettings = saveSettings;
