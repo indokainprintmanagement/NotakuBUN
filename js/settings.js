@@ -1,105 +1,191 @@
 // ============================================================
-//  settings.js — Store Settings
+//   settings.js — Store Settings
 // ============================================================
 
-async function initSettings() {
-  const keys = ['store_name','store_address','store_phone','store_tagline','nota_prefix'];
-  for (const key of keys) {
-    const el = document.getElementById('set-'+key.replace('store_','').replace('nota_','nota-'));
-    if (el) el.value = await DB.getSetting(key, getDefaultSetting(key));
-  }
-  // special mappings
-  document.getElementById('set-store-name').value    = await DB.getSetting('store_name','Toko Saya');
-  document.getElementById('set-store-address').value = await DB.getSetting('store_address','');
-  document.getElementById('set-store-phone').value   = await DB.getSetting('store_phone','');
-  document.getElementById('set-store-tagline').value = await DB.getSetting('store_tagline','');
-  document.getElementById('set-nota-prefix').value   = await DB.getSetting('nota_prefix','INV');
-  document.getElementById('set-default-notes-struk').value   = await DB.getSetting('default_notes_struk','');
-  document.getElementById('set-default-notes-invoice').value = await DB.getSetting('default_notes_invoice','');
+/**
+ * Helper aman untuk mengambil value dari input ID
+ */
+function getInputValue(id, fallback = '') {
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : fallback;
+}
 
-  // Update sidebar store name
-  updateSidebarStoreName();
+/**
+ * Helper aman untuk mengisi value ke input ID
+ */
+function setInputValue(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.value = val ?? '';
+}
+
+async function initSettings() {
+  try {
+    // Load Profil Toko
+    setInputValue('set-store-name',    await DB.getSetting('store_name', 'Toko Saya'));
+    setInputValue('set-store-address', await DB.getSetting('store_address', ''));
+    setInputValue('set-store-phone',   await DB.getSetting('store_phone', ''));
+    setInputValue('set-store-tagline', await DB.getSetting('store_tagline', ''));
+
+    // Load Konfigurasi & Catatan Nota
+    setInputValue('set-nota-prefix',          await DB.getSetting('nota_prefix', 'INV'));
+    setInputValue('set-default-notes-struk',   await DB.getSetting('default_notes_struk', ''));
+    setInputValue('set-default-notes-invoice', await DB.getSetting('default_notes_invoice', ''));
+
+    // Update sidebar
+    await updateSidebarStoreName();
+  } catch (err) {
+    console.error('Error initSettings:', err);
+  }
 }
 
 function getDefaultSetting(key) {
-  const defaults = { store_name:'Toko Saya', nota_prefix:'INV' };
-  return defaults[key]||'';
+  const defaults = { store_name: 'Toko Saya', nota_prefix: 'INV' };
+  return defaults[key] || '';
 }
 
+// Simpan Semua Pengaturan (Unified)
 async function saveSettings() {
-  await DB.setSetting('store_name',    document.getElementById('set-store-name').value.trim());
-  await DB.setSetting('store_address', document.getElementById('set-store-address').value.trim());
-  await DB.setSetting('store_phone',   document.getElementById('set-store-phone').value.trim());
-  await DB.setSetting('store_tagline', document.getElementById('set-store-tagline').value.trim());
-  await DB.setSetting('nota_prefix',   document.getElementById('set-nota-prefix').value.trim()||'INV');
-  await DB.setSetting('default_notes_struk',   document.getElementById('set-default-notes-struk').value.trim());
-  await DB.setSetting('default_notes_invoice', document.getElementById('set-default-notes-invoice').value.trim());
+  try {
+    await DB.setSetting('store_name',    getInputValue('set-store-name', 'Toko Saya'));
+    await DB.setSetting('store_address', getInputValue('set-store-address'));
+    await DB.setSetting('store_phone',   getInputValue('set-store-phone'));
+    await DB.setSetting('store_tagline', getInputValue('set-store-tagline'));
+    await DB.setSetting('nota_prefix',   getInputValue('set-nota-prefix', 'INV') || 'INV');
+    await DB.setSetting('default_notes_struk',   getInputValue('set-default-notes-struk'));
+    await DB.setSetting('default_notes_invoice', getInputValue('set-default-notes-invoice'));
 
-  Utils.toast('Pengaturan berhasil disimpan ✓', 'success');
-  updateSidebarStoreName();
+    Utils.toast('Pengaturan berhasil disimpan ✓', 'success');
+    await updateSidebarStoreName();
+  } catch (err) {
+    console.error('Gagal menyimpan pengaturan:', err);
+    Utils.toast('Gagal menyimpan pengaturan!', 'danger');
+  }
+}
+
+// Simpan Khusus Profil Toko
+async function saveProfileSettings() {
+  try {
+    await DB.setSetting('store_name',    getInputValue('set-store-name', 'Toko Saya'));
+    await DB.setSetting('store_address', getInputValue('set-store-address'));
+    await DB.setSetting('store_phone',   getInputValue('set-store-phone'));
+    await DB.setSetting('store_tagline', getInputValue('set-store-tagline'));
+
+    Utils.toast('Profil toko berhasil disimpan ✓', 'success');
+    await updateSidebarStoreName();
+  } catch (err) {
+    console.error('Gagal menyimpan profil:', err);
+    Utils.toast('Gagal menyimpan profil toko!', 'danger');
+  }
+}
+
+// Simpan Khusus Awalan Nota
+async function savePrefixSettings() {
+  try {
+    const prefix = getInputValue('set-nota-prefix', 'INV') || 'INV';
+    await DB.setSetting('nota_prefix', prefix);
+
+    Utils.toast('Awalan nota berhasil disimpan ✓', 'success');
+  } catch (err) {
+    console.error('Gagal menyimpan awalan nota:', err);
+    Utils.toast('Gagal menyimpan awalan nota!', 'danger');
+  }
+}
+
+// Simpan Khusus Catatan Nota
+async function saveNotesSettings() {
+  try {
+    await DB.setSetting('default_notes_struk',   getInputValue('set-default-notes-struk'));
+    await DB.setSetting('default_notes_invoice', getInputValue('set-default-notes-invoice'));
+
+    Utils.toast('Catatan default berhasil disimpan ✓', 'success');
+  } catch (err) {
+    console.error('Gagal menyimpan catatan:', err);
+    Utils.toast('Gagal menyimpan catatan default!', 'danger');
+  }
 }
 
 async function updateSidebarStoreName() {
-  const name = await DB.getSetting('store_name','Toko Saya');
-  const el = document.getElementById('sidebar-store-name');
-  if (el) el.textContent = name;
-  const logoEl = document.getElementById('sidebar-store-logo');
-  if (logoEl) logoEl.textContent = (name[0]||'T').toUpperCase();
+  try {
+    const name = await DB.getSetting('store_name', 'Toko Saya');
+    const el = document.getElementById('sidebar-store-name');
+    if (el) el.textContent = name;
+    
+    const logoEl = document.getElementById('sidebar-store-logo');
+    if (logoEl) logoEl.textContent = (name[0] || 'T').toUpperCase();
+  } catch (err) {
+    console.warn('Gagal update sidebar name:', err);
+  }
 }
 
 async function exportAllData() {
-  const [invoices, customers, products] = await Promise.all([
-    DB.getInvoicesRich(), DB.dbGetAll('customers'), DB.dbGetAll('products')
-  ]);
+  try {
+    const [invoices, customers, products] = await Promise.all([
+      DB.getInvoicesRich(), DB.dbGetAll('customers'), DB.dbGetAll('products')
+    ]);
 
-  // Export invoices
-  const rows = invoices.map(i => ({
-    no_nota: i.no_nota, date: i.date, time: i.time||'',
-    customer: i.customer_name, status: i.status,
-    subtotal: i.subtotal||0, discount: i.discount||0, grand_total: i.grand_total||0,
-    notes: i.notes||'',
-    items: JSON.stringify(i.items||[]),
-  }));
-  Utils.exportCSV(`nota_semua_${Utils.todayStr()}.csv`, rows,
-    ['no_nota','date','time','customer','status','subtotal','discount','grand_total','notes','items']);
+    const rows = invoices.map(i => ({
+      no_nota: i.no_nota, 
+      date: i.date, 
+      time: i.time || '',
+      customer: i.customer_name, 
+      status: i.status,
+      subtotal: i.subtotal || 0, 
+      discount: i.discount || 0, 
+      grand_total: i.grand_total || 0,
+      notes: i.notes || '',
+      items: JSON.stringify(i.items || []),
+    }));
 
-  setTimeout(() => Utils.toast('Data berhasil diekspor ke CSV', 'success'), 500);
+    Utils.exportCSV(`nota_semua_${Utils.todayStr()}.csv`, rows,
+      ['no_nota','date','time','customer','status','subtotal','discount','grand_total','notes','items']);
+
+    setTimeout(() => Utils.toast('Data berhasil diekspor ke CSV', 'success'), 500);
+  } catch (err) {
+    console.error('Error export CSV:', err);
+    Utils.toast('Gagal mengekspor data ke CSV', 'danger');
+  }
 }
 
 async function clearAllData() {
   Utils.confirm('Reset Semua Data', 'PERHATIAN: Semua data nota, pelanggan, produk, pengeluaran, dan mutasi stok akan dihapus permanen!', async () => {
-    const stores = ['invoices','customers','products','expenses','stock_movements'];
-    for (const s of stores) {
-      const all = await DB.dbGetAll(s);
-      for (const item of all) await DB.dbDelete(s, item.id);
+    try {
+      const stores = ['invoices','customers','products','expenses','stock_movements'];
+      for (const s of stores) {
+        const all = await DB.dbGetAll(s);
+        for (const item of all) await DB.dbDelete(s, item.id);
+      }
+      Utils.toast('Semua data telah dihapus', 'warning');
+      if (typeof navigateTo === 'function') navigateTo('dashboard');
+    } catch (err) {
+      console.error('Error clearAllData:', err);
     }
-    Utils.toast('Semua data telah dihapus', 'warning');
-    if (typeof navigateTo === 'function') navigateTo('dashboard');
   }, true);
 }
 
 async function generateSampleData() {
-  // Sample customers
-  const c1 = { name:'Budi Santoso', phone:'081234567890', address:'Jl. Merdeka No.10, Jakarta' };
-  const c2 = { name:'Siti Rahayu', phone:'082345678901', address:'Jl. Sudirman No.5, Bandung' };
-  const c3 = { name:'Ahmad Fauzi', phone:'083456789012', address:'Jl. Gatot Subroto No.8, Surabaya' };
-  await DB.dbPut('customers', c1);
-  await DB.dbPut('customers', c2);
-  await DB.dbPut('customers', c3);
+  try {
+    const c1 = { name:'Budi Santoso', phone:'081234567890', address:'Jl. Merdeka No.10, Jakarta' };
+    const c2 = { name:'Siti Rahayu', phone:'082345678901', address:'Jl. Sudirman No.5, Bandung' };
+    const c3 = { name:'Ahmad Fauzi', phone:'083456789012', address:'Jl. Gatot Subroto No.8, Surabaya' };
+    await DB.dbPut('customers', c1);
+    await DB.dbPut('customers', c2);
+    await DB.dbPut('customers', c3);
 
-  // Sample products
-  const prods = [
-    { name:'Kemeja Polos', category:'Pakaian', price:85000 },
-    { name:'Kaos Oblong', category:'Pakaian', price:55000 },
-    { name:'Celana Jeans', category:'Pakaian', price:175000 },
-    { name:'Sepatu Casual', category:'Alas Kaki', price:285000 },
-    { name:'Topi Baseball', category:'Aksesori', price:45000 },
-    { name:'Tas Selempang', category:'Aksesori', price:135000 },
-  ];
-  for (const p of prods) await DB.dbPut('products', p);
+    const prods = [
+      { name:'Kemeja Polos', category:'Pakaian', price:85000 },
+      { name:'Kaos Oblong', category:'Pakaian', price:55000 },
+      { name:'Celana Jeans', category:'Pakaian', price:175000 },
+      { name:'Sepatu Casual', category:'Alas Kaki', price:285000 },
+      { name:'Topi Baseball', category:'Aksesori', price:45000 },
+      { name:'Tas Selempang', category:'Aksesori', price:135000 },
+    ];
+    for (const p of prods) await DB.dbPut('products', p);
 
-  Utils.toast('Data contoh berhasil ditambahkan!', 'success');
-  if (typeof updateDebtBadge === 'function') await updateDebtBadge();
+    Utils.toast('Data contoh berhasil ditambahkan!', 'success');
+    if (typeof updateDebtBadge === 'function') await updateDebtBadge();
+  } catch (err) {
+    console.error('Error generateSampleData:', err);
+  }
 }
 
 async function resetWebTotal() {
@@ -125,10 +211,14 @@ async function resetWebTotal() {
   }, true);
 }
 
-window.initSettings        = initSettings;
-window.saveSettings        = saveSettings;
-window.exportAllData       = exportAllData;
-window.clearAllData        = clearAllData;
-window.generateSampleData  = generateSampleData;
+// Export ke Window Scope
+window.initSettings         = initSettings;
+window.saveSettings         = saveSettings;
+window.saveProfileSettings  = saveProfileSettings;
+window.savePrefixSettings   = savePrefixSettings;
+window.saveNotesSettings    = saveNotesSettings;
+window.exportAllData        = exportAllData;
+window.clearAllData         = clearAllData;
+window.generateSampleData   = generateSampleData;
 window.updateSidebarStoreName = updateSidebarStoreName;
-window.resetWebTotal       = resetWebTotal;
+window.resetWebTotal        = resetWebTotal;
