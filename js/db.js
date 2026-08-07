@@ -1,17 +1,22 @@
 // ============================================================
-//   db.js — Universal Sync (Auto Mobile & PC)
+//   db.js — Universal Auto-Sync (Fix HP Private / Blank)
 // ============================================================
 
 const DB = {
+  // --- DUMMY OPEN DB AGAR APP.JS TIDAK ERROR ---
+  async openDB() {
+    return true;
+  },
+
   // --- SETTINGS ---
   async getSetting(key, defaultValue = '') {
-    // 1. Cek LocalStorage
+    // Cek LocalStorage
     const localVal = localStorage.getItem('set_' + key);
     if (localVal !== null && localVal !== undefined && localVal.trim() !== '') {
       return localVal;
     }
 
-    // 2. Jika LocalStorage HP kosong, paksa panggil Supabase jika window.supabase ada
+    // Jika HP belum ada data, ambil dari Supabase
     try {
       if (window.supabase && typeof window.supabase.from === 'function') {
         const { data, error } = await window.supabase
@@ -53,7 +58,7 @@ const DB = {
     return true;
   },
 
-  // --- GENERIC DATA ---
+  // --- GENERIC DATA (Invoices, Customers, Products, etc) ---
   async dbGetAll(storeName) {
     try {
       if (window.supabase && typeof window.supabase.from === 'function') {
