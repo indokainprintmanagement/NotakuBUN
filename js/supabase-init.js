@@ -3,6 +3,6 @@ const SUPABASE_URL = "https://supabase.com/dashboard/project/tqjutrukibhtxzovbpp
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxanV0cnVraWJodHh6b3ZicHBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYwNjg4MzQsImV4cCI6MjEwMTY0NDgzNH0.kHFcbIk5txLh3NHLDxjzf-cAAlkuwdxhAgJJ-GL7BMk";
 
 window.supabase = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_ANON_KEY
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
 );
