@@ -355,7 +355,6 @@
        PAGE: INVENTORY (MUTASI STOK)
   ============================================================ -->
   <section class="content" id="page-inventory">
-    <!-- Inventory summary cards -->
     <div class="grid-2" style="max-width:640px; margin-bottom:20px">
       <div class="stat-card green">
         <div class="stat-icon green">📥</div>
@@ -410,7 +409,6 @@
        PAGE: EXPENSES (PENGELUARAN HARIAN)
   ============================================================ -->
   <section class="content" id="page-expenses">
-    <!-- Expenses summary card -->
     <div style="max-width:320px; margin-bottom:20px">
       <div class="stat-card red">
         <div class="stat-icon red">💸</div>
@@ -486,7 +484,6 @@
        PAGE: DEBTS
   ============================================================ -->
   <section class="content" id="page-debts">
-    <!-- Debt summary cards -->
     <div class="grid-3" style="margin-bottom:20px">
       <div class="stat-card red">
         <div class="stat-icon red">💳</div>
@@ -565,7 +562,7 @@
             <label class="form-label">Tagline / Slogan</label>
             <input type="text" class="form-control" id="set-store-tagline" placeholder="Melayani dengan sepenuh hati...">
           </div>
-          <button class="btn btn-primary" onclick="saveSettings()" style="width:100%">💾 Simpan Pengaturan</button>
+          <button class="btn btn-primary" onclick="saveSettings()" style="width:100%">💾 Simpan Pengaturan Profil</button>
         </div>
       </div>
 
@@ -584,7 +581,7 @@
                 Contoh: <code style="color:var(--accent-light)">INV</code> → INV-202601-0001 &nbsp;|&nbsp; <code style="color:var(--accent-light)">STRK</code> → STRK-202601-0001
               </div>
             </div>
-            <button class="btn btn-primary" onclick="saveSettings()" style="width:100%">💾 Simpan</button>
+            <button class="btn btn-primary" onclick="saveSettings()" style="width:100%">💾 Simpan Awalan Nota</button>
           </div>
         </div>
 
@@ -602,7 +599,7 @@
               <label class="form-label">Catatan Default Invoice (A4)</label>
               <textarea class="form-control" id="set-default-notes-invoice" placeholder="Contoh: Transfer ke Rekening BCA: 123-4567-89 a/n Nama Toko..." rows="2"></textarea>
             </div>
-            <button class="btn btn-primary" onclick="saveSettings()" style="width:100%">💾 Simpan</button>
+            <button class="btn btn-primary" onclick="saveSettings()" style="width:100%">💾 Simpan Catatan</button>
           </div>
         </div>
 
@@ -737,7 +734,7 @@
         </div>
         <div class="form-group" id="bank-name-wrap" style="display:none; margin-bottom:0">
           <label class="form-label">Nama Bank *</label>
-          <div style="display:flex; gap:8px">
+          <div style="display:flex; gap:8px; flex-wrap:wrap">
             <select class="form-control" id="inv-bank-select" onchange="onBankSelectChange()" style="flex:1">
               <option value="BCA">BCA</option>
               <option value="MANDIRI">MANDIRI</option>
@@ -1098,19 +1095,21 @@
   }
   window.exportInvoicesCSV = exportInvoicesCSV;
 
-  // Show browser info
+  // Show browser info & responsiveness toggles
   document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('info-browser');
     if (el) el.textContent = navigator.userAgent.match(/Chrome\/[\d.]+|Firefox\/[\d.]+|Safari\/[\d.]+/)?.[0] || 'Unknown';
 
     // Show keyboard hint on desktop
     if (window.innerWidth > 900) {
-      document.getElementById('shortcut-hint').style.display='inline';
+      const hint = document.getElementById('shortcut-hint');
+      if (hint) hint.style.display = 'inline';
     }
 
     // Show mobile menu toggle
     if (window.innerWidth <= 900) {
-      document.getElementById('menu-toggle').style.display='flex';
+      const toggle = document.getElementById('menu-toggle');
+      if (toggle) toggle.style.display = 'flex';
     }
   });
 </script>
