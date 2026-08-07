@@ -1,5 +1,5 @@
 // ============================================================
-//   settings.js — Store Settings (Fixed & Bulletproof)
+//   settings.js — Fixed Save Profile & Store Name Sync
 // ============================================================
 
 function getInputValue(id, fallback = '') {
@@ -9,7 +9,11 @@ function getInputValue(id, fallback = '') {
 
 function setInputValue(id, val) {
   const el = document.getElementById(id);
-  if (el) el.value = (val !== null && val !== undefined) ? val : '';
+  if (el) {
+    el.value = (val !== null && val !== undefined) ? val : '';
+    el.removeAttribute('disabled'); // Buka proteksi disabled jika ada
+    el.removeAttribute('readonly');
+  }
 }
 
 async function initSettings() {
@@ -38,18 +42,27 @@ async function saveSettings() {
       return;
     }
 
-    await DB.setSetting('store_name',            getInputValue('set-store-name', 'Toko Saya'));
-    await DB.setSetting('store_address',         getInputValue('set-store-address'));
-    await DB.setSetting('store_phone',           getInputValue('set-store-phone'));
-    await DB.setSetting('store_tagline',         getInputValue('set-store-tagline'));
-    await DB.setSetting('nota_prefix',           getInputValue('set-nota-prefix', 'INV') || 'INV');
-    await DB.setSetting('default_notes_struk',   getInputValue('set-default-notes-struk'));
-    await DB.setSetting('default_notes_invoice', getInputValue('set-default-notes-invoice'));
+    const storeName = getInputValue('set-store-name', 'Toko Saya');
+    const storeAddr = getInputValue('set-store-address');
+    const storePhone = getInputValue('set-store-phone');
+    const storeTagline = getInputValue('set-store-tagline');
+
+    // Paksa simpan semua bidang profil ke DB
+    await Promise.all([
+      DB.setSetting('store_name', storeName),
+      DB.setSetting('store_address', storeAddr),
+      DB.setSetting('store_phone', storePhone),
+      DB.setSetting('store_tagline', storeTagline),
+      DB.setSetting('nota_prefix', getInputValue('set-nota-prefix', 'INV') || 'INV'),
+      DB.setSetting('default_notes_struk', getInputValue('set-default-notes-struk')),
+      DB.setSetting('default_notes_invoice', getInputValue('set-default-notes-invoice'))
+    ]);
+
+    await updateSidebarStoreName();
 
     if (window.Utils && typeof window.Utils.toast === 'function') {
       Utils.toast('Pengaturan berhasil disimpan ✓', 'success');
     }
-    await updateSidebarStoreName();
   } catch (err) {
     console.error('Gagal menyimpan pengaturan:', err);
     if (window.Utils && typeof window.Utils.toast === 'function') {
@@ -62,6 +75,8 @@ async function updateSidebarStoreName() {
   try {
     if (typeof DB === 'undefined' || typeof DB.getSetting !== 'function') return;
     const name = await DB.getSetting('store_name', 'Toko Saya');
+    
+    // Update teks sidebar di kiri bawah
     const el = document.getElementById('sidebar-store-name');
     if (el) el.textContent = name;
 
@@ -159,7 +174,7 @@ async function resetWebTotal() {
   }, true);
 }
 
-// Attach to Global Scope
+// Bind Global Functions
 window.initSettings = initSettings;
 window.saveSettings = saveSettings;
 window.saveProfileSettings = saveSettings;
