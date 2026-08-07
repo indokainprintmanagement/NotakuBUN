@@ -1,55 +1,63 @@
 // ============================================================
-//   db.js — Public Sync (No Private Lock)
+//   db.js — Universal Sync (Auto Mobile & PC)
 // ============================================================
 
 const DB = {
+  // --- SETTINGS ---
   async getSetting(key, defaultValue = '') {
+    // 1. Cek LocalStorage
+    const localVal = localStorage.getItem('set_' + key);
+    if (localVal !== null && localVal !== undefined && localVal.trim() !== '') {
+      return localVal;
+    }
+
+    // 2. Jika LocalStorage HP kosong, paksa panggil Supabase jika window.supabase ada
     try {
-      if (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function') {
-        const { data, error } = await supabase
+      if (window.supabase && typeof window.supabase.from === 'function') {
+        const { data, error } = await window.supabase
           .from('settings')
           .select('value')
           .eq('key', key)
           .maybeSingle();
 
-        if (!error && data && data.value !== null && data.value !== undefined && String(data.value).trim() !== '') {
-          const val = String(data.value);
-          localStorage.setItem('set_' + key, val);
-          return val;
+        if (!error && data && data.value !== null && data.value !== undefined) {
+          const valStr = String(data.value);
+          localStorage.setItem('set_' + key, valStr);
+          return valStr;
         }
       }
     } catch (e) {
       console.warn('Supabase fetch bypassed:', e);
     }
 
-    const localVal = localStorage.getItem('set_' + key);
-    return (localVal !== null && localVal !== undefined && localVal.trim() !== '') ? localVal : defaultValue;
+    return defaultValue;
   },
 
   async setSetting(key, value) {
     const valStr = String(value ?? '').trim();
     localStorage.setItem('set_' + key, valStr);
 
-    if (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function') {
-      try {
-        const { error } = await supabase
+    try {
+      if (window.supabase && typeof window.supabase.from === 'function') {
+        const { error } = await window.supabase
           .from('settings')
           .upsert({ key: key, value: valStr }, { onConflict: 'key' });
 
         if (error) {
-          await supabase.from('settings').insert({ key: key, value: valStr });
+          await window.supabase.from('settings').insert({ key: key, value: valStr });
         }
-      } catch (e) {
-        console.warn('Supabase save bypassed:', e);
       }
+    } catch (e) {
+      console.warn('Supabase save bypassed:', e);
     }
     return true;
   },
 
+  // --- GENERIC DATA ---
   async dbGetAll(storeName) {
     try {
-      if (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function') {
-        const { data, error } = await supabase.from(storeName).select('*');
+      if (window.supabase && typeof window.supabase.from === 'function') {
+        const { data, error } = await window.supabase.from(storeName).select('*');
         if (!error && data) {
           localStorage.setItem('db_' + storeName, JSON.stringify(data));
           return data;
@@ -73,12 +81,12 @@ const DB = {
 
     localStorage.setItem('db_' + storeName, JSON.stringify(all));
 
-    if (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function') {
-      try {
-        await supabase.from(storeName).upsert(item);
-      } catch (e) {
-        console.warn(`Put ${storeName} error:`, e);
+    try {
+      if (window.supabase && typeof window.supabase.from === 'function') {
+        await window.supabase.from(storeName).upsert(item);
       }
+    } catch (e) {
+      console.warn(`Put ${storeName} error:`, e);
     }
     return item;
   },
@@ -88,12 +96,12 @@ const DB = {
     all = all.filter(x => x.id !== id);
     localStorage.setItem('db_' + storeName, JSON.stringify(all));
 
-    if (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function') {
-      try {
-        await supabase.from(storeName).delete().eq('id', id);
-      } catch (e) {
-        console.warn(`Delete ${storeName} error:`, e);
+    try {
+      if (window.supabase && typeof window.supabase.from === 'function') {
+        await window.supabase.from(storeName).delete().eq('id', id);
       }
+    } catch (e) {
+      console.warn(`Delete ${storeName} error:`, e);
     }
     return true;
   },
