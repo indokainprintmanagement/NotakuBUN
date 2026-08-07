@@ -3,9 +3,9 @@
 // ============================================================
 
 const DB = {
-  // --- SETTINGS (Strict Supabase First -> Sync to Local) ---
+  // --- SETTINGS ---
   async getSetting(key, defaultValue = '') {
-    // 1. Coba tarik data utama langsung dari Supabase
+    // 1. Prioritas Utama: Ambil dari Supabase (agar HP & PC selalu sama)
     try {
       if (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function') {
         const { data, error } = await supabase
@@ -14,19 +14,19 @@ const DB = {
           .eq('key', key)
           .maybeSingle();
 
-        if (!error && data && data.value !== null && data.value !== undefined) {
+        if (!error && data && data.value !== null && data.value !== undefined && String(data.value).trim() !== '') {
           const valStr = String(data.value);
           localStorage.setItem('set_' + key, valStr);
           return valStr;
         }
       }
     } catch (err) {
-      console.warn('Gagal fetch setting Supabase, fallback ke LocalStorage:', err);
+      console.warn('Gagal fetch setting Supabase:', err);
     }
 
-    // 2. Fallback ke LocalStorage jika offline / gagal koneksi
+    // 2. Cache Lokal (Fallback)
     const localVal = localStorage.getItem('set_' + key);
-    if (localVal !== null && localVal !== undefined && localVal !== '') {
+    if (localVal !== null && localVal !== undefined && localVal.trim() !== '') {
       return localVal;
     }
 
@@ -36,23 +36,30 @@ const DB = {
   async setSetting(key, value) {
     const valStr = String(value ?? '').trim();
 
-    // 1. Simpan ke LocalStorage lokal
+    // Simpan ke LocalStorage lokal
     localStorage.setItem('set_' + key, valStr);
 
-    // 2. Paksa simpan ke Supabase (Upsert / Insert On Conflict)
+    // Kirim ke Supabase
     if (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function') {
       try {
+        // Coba Upsert
         const { error } = await supabase
           .from('settings')
           .upsert({ key: key, value: valStr }, { onConflict: 'key' });
 
         if (error) {
-          console.error(`Gagal simpan setting '${key}' ke Supabase:`, error.message);
-          // Jika upsert gagal, coba mekanisme update
-          await supabase.from('settings').update({ value: valStr }).eq('key', key);
+          console.error(`Upsert gagal (${key}), mencoba manual Insert/Update...`, error.message);
+          
+          // Fallback manual jika upsert ditolak
+          const { data } = await supabase.from('settings').select('key').eq('key', key).maybeSingle();
+          if (data) {
+            await supabase.from('settings').update({ value: valStr }).eq('key', key);
+          } else {
+            await supabase.from('settings').insert({ key: key, value: valStr });
+          }
         }
       } catch (err) {
-        console.error('Error saat push setting ke Supabase:', err);
+        console.error('Error push setting ke Supabase:', err);
       }
     }
 
