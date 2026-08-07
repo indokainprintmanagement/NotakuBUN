@@ -1,17 +1,18 @@
 // ============================================================
-//   db.js — Local & Supabase Storage Integration
+//   db.js — Local & Supabase Hybrid Storage (Auto-Sync)
 // ============================================================
 
 const DB = {
-  // --- SETTINGS (FIXED: Local First & Fast Load) ---
+  // --- SETTINGS (FIXED: Smart Sync PC & Mobile) ---
   async getSetting(key, defaultValue = '') {
-    // Priority 1: Ambil dari LocalStorage langsung (instant & pasti tersimpan)
     const localVal = localStorage.getItem('set_' + key);
-    if (localVal !== null && localVal !== undefined && localVal !== '') {
+
+    // 1. Jika di LocalStorage ada isinya (dan bukan string kosong), pakai lokal
+    if (localVal !== null && localVal !== undefined && localVal.trim() !== '') {
       return localVal;
     }
 
-    // Priority 2: Jika lokal kosong, coba ambil dari Supabase
+    // 2. Jika di LocalStorage kosong, tarik data dari Supabase (Sync antar HP & PC)
     try {
       if (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function') {
         const { data, error } = await supabase
@@ -20,32 +21,32 @@ const DB = {
           .eq('key', key)
           .maybeSingle();
 
-        if (!error && data && data.value !== undefined && data.value !== null) {
-          localStorage.setItem('set_' + key, data.value);
-          return data.value;
+        if (!error && data && data.value !== undefined && data.value !== null && String(data.value).trim() !== '') {
+          localStorage.setItem('set_' + key, String(data.value));
+          return String(data.value);
         }
       }
     } catch (err) {
-      console.warn('Gagal ambil setting Supabase:', err);
+      console.warn('Gagal sync setting Supabase:', err);
     }
 
     return defaultValue;
   },
 
   async setSetting(key, value) {
-    const valStr = String(value ?? '');
-    
-    // SELALU simpan ke LocalStorage agar langsung permanen di browser
+    const valStr = String(value ?? '').trim();
+
+    // 1. Simpan ke LocalStorage HP/PC
     localStorage.setItem('set_' + key, valStr);
 
-    // Kirim backup ke Supabase tanpa mengganggu antarmuka
+    // 2. Wajib push ke Supabase supaya HP & PC datanya sama
     if (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function') {
       try {
         await supabase
           .from('settings')
           .upsert({ key: key, value: valStr }, { onConflict: 'key' });
       } catch (err) {
-        console.warn('Supabase sync warning:', err);
+        console.warn('Supabase upsert setting warning:', err);
       }
     }
 
